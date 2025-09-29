@@ -1,0 +1,79 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <iostream>
+#include <string>
+struct message
+{
+    int type;
+    int roomID;
+    char senderName[1024];
+    char message[1024];
+};
+struct roomID
+{
+    int roomID;
+    char roomName[1024];
+} room;
+message *msg = new message;
+
+int main()
+{
+    msg->type = 0;
+    msg->roomID = 900;
+    strncpy(msg->message, "LMAOO", 1023);
+
+    strncpy(msg->senderName, "Gren", 1023);
+    int client_socket;
+    struct sockaddr_in server_addr;
+    char buffer[1024];
+    socklen_t server_len = sizeof(server_addr);
+
+    client_socket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (client_socket < 0)
+    {
+        perror("socket failed");
+        exit(EXIT_FAILURE);
+    }
+
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(8000);
+    if (inet_pton(AF_INET, "127.0.0.1", &server_addr.sin_addr) <= 0)
+    {
+        perror("invalid address");
+        close(client_socket);
+        exit(EXIT_FAILURE);
+    }
+
+    while (1)
+    {
+        int lmaoooo;
+        printf("Client: ");
+        std::cin >> msg->type;
+        fgets(buffer, 1024, stdin);
+        buffer[strcspn(buffer, "\n")] = 0;
+        msg->roomID = lmaoooo;
+        sendto(client_socket, msg, sizeof(msg), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+
+        if (strcmp(buffer, "exit") == 0)
+        {
+            break;
+        }
+        int n = recvfrom(client_socket, &room, sizeof(roomID), 0, (struct sockaddr *)&server_addr, &server_len);
+        if (n < 0)
+        {
+            perror("Recvfrom failed");
+            close(client_socket);
+            exit(EXIT_FAILURE);
+        }
+        buffer[n] = '\0';
+        printf("Echoed string from server: %d\n", room.roomID);
+    }
+
+    close(client_socket);
+    return 0;
+}
