@@ -13,7 +13,7 @@ struct message
     int roomID;
     char senderName[1024];
     char message[1024];
-};
+} second_message;
 struct roomID
 {
     int roomID;
@@ -51,12 +51,9 @@ int main()
 
     while (1)
     {
-        int lmaoooo;
         printf("Client: ");
         std::cin >> msg->type;
-        fgets(buffer, 1024, stdin);
         buffer[strcspn(buffer, "\n")] = 0;
-        msg->roomID = lmaoooo;
         sendto(client_socket, msg, sizeof(msg), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
 
         if (strcmp(buffer, "exit") == 0)
@@ -72,6 +69,11 @@ int main()
         }
         buffer[n] = '\0';
         printf("Echoed string from server: %d\n", room.roomID);
+        second_message.type = 1;
+        second_message.roomID = room.roomID;
+        sendto(client_socket, &second_message, sizeof(message), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        n = recvfrom(client_socket, buffer, 10, 0, (struct sockaddr *)&server_addr, &server_len);
+        std::cout << buffer << "\n";
     }
 
     close(client_socket);
