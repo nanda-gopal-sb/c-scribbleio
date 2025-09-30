@@ -146,11 +146,6 @@ public:
             std::cout << req_room_it->second.size() << "\n";
             req_room_it->second.push_back(front.sender);
             std::cout << req_room_it->second.size() << "\n";
-            sendReply<const char[8]>("Created");
-        }
-        else
-        {
-            sendReply<const char[6]>("Error");
         }
     }
     void broadcast(int roomId, Message recvived)

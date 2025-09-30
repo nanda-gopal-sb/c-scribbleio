@@ -7,6 +7,8 @@
 #include <arpa/inet.h>
 #include <iostream>
 #include <string>
+#include <thread>
+#include <mutex>
 using namespace std;
 struct message
 {
@@ -21,14 +23,68 @@ struct roomID
     char roomName[1024];
 } room;
 message *msg = new message;
+mutex mux;
+int client_socket;
+struct sockaddr_in server_addr;
+char buffer[1024];
+socklen_t server_len = sizeof(server_addr);
 
+#include <atomic>
+std::atomic<bool> running{true};
+
+static void print_prompt()
+{
+    std::cout << "You: " << std::flush;
+}
+
+void recv_loop()
+{
+    char recvbuf[2048];
+    while (running)
+    {
+        int n = recvfrom(client_socket, recvbuf, sizeof(recvbuf) - 1, 0,
+                         (struct sockaddr *)&server_addr, &server_len);
+        if (n <= 0)
+        {
+            if (!running)
+                break;
+            continue;
+        }
+        recvbuf[n] = '\0';
+        std::lock_guard<std::mutex> lock(mux);
+        std::cout << "\r\033[KPeer: " << recvbuf << std::endl;
+        print_prompt();
+    }
+}
+
+void send_loop()
+{
+    std::string line;
+    // consume leftover newline from previous >> input
+    std::getline(std::cin, line);
+    print_prompt();
+    while (running && std::getline(std::cin, line))
+    {
+        if (line == "/quit" || line == "/exit")
+        {
+            running = false;
+            close(client_socket);
+            break;
+        }
+        if (line.empty())
+        {
+            print_prompt();
+            continue;
+        }
+        msg->type = 3;
+        strncpy(msg->message, line.c_str(), sizeof(msg->message) - 1);
+        msg->message[sizeof(msg->message) - 1] = '\0';
+        sendto(client_socket, msg, sizeof(*msg), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        print_prompt();
+    }
+}
 int main()
 {
-
-    int client_socket;
-    struct sockaddr_in server_addr;
-    char buffer[1024];
-    socklen_t server_len = sizeof(server_addr);
 
     client_socket = socket(AF_INET, SOCK_DGRAM, 0);
     if (client_socket < 0)
@@ -53,51 +109,36 @@ int main()
 
     cout << "1-Create Room\n";
     cout << "2- Join Room\n";
-
+    cin >> ch;
     if (ch == 1)
     {
         msg->type = 0;
-        strncpy(msg->message, "LMAOO", 1023);
-        strncpy(msg->senderName, "Gren", 1023);
-        sendto(client_socket, msg, sizeof(msg), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        sendto(client_socket, msg, sizeof(*msg), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
         int n = recvfrom(client_socket, &room, sizeof(roomID), 0, (struct sockaddr *)&server_addr, &server_len);
         printf("Your Created Room %d\n", room.roomID);
-        second_message.type = 1;
-        second_message.roomID = room.roomID;
-        n = recvfrom(client_socket, buffer, 10, 0, (struct sockaddr *)&server_addr, &server_len);
-        if (strcmp(buffer, "Created"))
-        {
-            system("clear");
-        }
-    }
+        msg->type = 1;
+        msg->roomID = room.roomID;
+        sendto(client_socket, msg, sizeof(*msg), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        thread t2(send_loop);
+        thread t1(recv_loop);
 
-    while (1)
+        t1.join();
+        t2.join();
+        // system("clear");
+        // system("clear");
+    }
+    if (ch == 2)
     {
-        printf("Client: ");
-        std::cin >> msg->type;
-        buffer[strcspn(buffer, "\n")] = 0;
+        int roomID = 0;
+        cin >> roomID;
+        msg->type = 1;
+        msg->roomID = roomID;
         sendto(client_socket, msg, sizeof(msg), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
-
-        if (strcmp(buffer, "exit") == 0)
-        {
-            break;
-        }
-        int n = recvfrom(client_socket, &room, sizeof(roomID), 0, (struct sockaddr *)&server_addr, &server_len);
-        if (n < 0)
-        {
-            perror("Recvfrom failed");
-            close(client_socket);
-            exit(EXIT_FAILURE);
-        }
-        buffer[n] = '\0';
-        printf("Echoed string from server: %d\n", room.roomID);
-        second_message.type = 1;
-        second_message.roomID = room.roomID;
-        sendto(client_socket, &second_message, sizeof(message), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
-        n = recvfrom(client_socket, buffer, 10, 0, (struct sockaddr *)&server_addr, &server_len);
-        std::cout << buffer << "\n";
+        std::this_thread::sleep_for(std::chrono::seconds(2));
+        thread t2(send_loop);
+        thread t1(recv_loop);
+        t1.join();
+        t2.join();
     }
-
-    close(client_socket);
-    return 0;
 }
