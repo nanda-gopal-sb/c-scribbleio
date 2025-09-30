@@ -7,6 +7,7 @@
 #include <arpa/inet.h>
 #include <iostream>
 #include <string>
+using namespace std;
 struct message
 {
     int type;
@@ -23,11 +24,7 @@ message *msg = new message;
 
 int main()
 {
-    msg->type = 0;
-    msg->roomID = 900;
-    strncpy(msg->message, "LMAOO", 1023);
 
-    strncpy(msg->senderName, "Gren", 1023);
     int client_socket;
     struct sockaddr_in server_addr;
     char buffer[1024];
@@ -47,6 +44,31 @@ int main()
         perror("invalid address");
         close(client_socket);
         exit(EXIT_FAILURE);
+    }
+    char name[1024] = {0};
+    cout << "Enter your name\n";
+    cin >> name;
+
+    int ch = 0;
+
+    cout << "1-Create Room\n";
+    cout << "2- Join Room\n";
+
+    if (ch == 1)
+    {
+        msg->type = 0;
+        strncpy(msg->message, "LMAOO", 1023);
+        strncpy(msg->senderName, "Gren", 1023);
+        sendto(client_socket, msg, sizeof(msg), 0, (struct sockaddr *)&server_addr, sizeof(server_addr));
+        int n = recvfrom(client_socket, &room, sizeof(roomID), 0, (struct sockaddr *)&server_addr, &server_len);
+        printf("Your Created Room %d\n", room.roomID);
+        second_message.type = 1;
+        second_message.roomID = room.roomID;
+        n = recvfrom(client_socket, buffer, 10, 0, (struct sockaddr *)&server_addr, &server_len);
+        if (strcmp(buffer, "Created"))
+        {
+            system("clear");
+        }
     }
 
     while (1)
